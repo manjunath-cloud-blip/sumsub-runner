@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin:0; padding:0; height:100%; }
+  #sumsub-websdk-container { width:100%; height:100%; }
+</style>
+</head>
+<body>
+  <div id="sumsub-websdk-container"></div>
+  <script src="https://static.sumsub.com/idensic/static/main.js"></script>
+  <script>
+    function initSumsub(accessToken) {
+      var sdk = snsWebSdk
+        .init(accessToken, function () {
+          return new Promise(function (resolve, reject) {
+            window.parent.postMessage({ type: 'sumsub-token-request' }, '*');
+            window.addEventListener('message', function handler(e) {
+              if (e.data && e.data.type === 'sumsub-token-response') {
+                window.removeEventListener('message', handler);
+                resolve(e.data.token);
+              }
+            });
+          });
+        })
+        .withConf({ lang: 'en' })
+        .withOptions({ adaptIframeHeight: true })
+        .on('idCheck.onStepCompleted', function (p) {
+          window.parent.postMessage({ type: 'sumsub-step', payload: p }, '*');
+        })
+        .on('idCheck.onApplicantSubmitted', function () {
+          window.parent.postMessage({ type: 'sumsub-submitted' }, '*');
+        })
+        .on('idCheck.onError', function (err) {
+          window.parent.postMessage({ type: 'sumsub-error', error: String(err) }, '*');
+        })
+        .build();
+
+      sdk.launch('#sumsub-websdk-container');
+    }
+
+    // Listen for the initial token from the parent LWC
+    window.addEventListener('message', function (e) {
+      if (e.data && e.data.type === 'sumsub-init' && e.data.token) {
+        initSumsub(e.data.token);
+      }
+    });
+
+    // Tell parent we're ready to receive the token
+    window.parent.postMessage({ type: 'sumsub-runner-ready' }, '*');
+  </script>
+</body>
+</html>
