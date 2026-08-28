@@ -11,45 +11,40 @@
   <div id="sumsub-websdk-container"></div>
   <script src="https://static.sumsub.com/idensic/static/sns-websdk-builder.js"></script>
   <script>
-    var target = window.opener || window.parent;
+    function getTokenFromUrl() {
+      var params = new URLSearchParams(window.location.search);
+      return params.get('token');
+    }
 
     function initSumsub(accessToken) {
       var sdk = snsWebSdk
         .init(accessToken, function () {
-          return new Promise(function (resolve, reject) {
-            target.postMessage({ type: 'sumsub-token-request' }, '*');
-            window.addEventListener('message', function handler(e) {
-              if (e.data && e.data.type === 'sumsub-token-response') {
-                window.removeEventListener('message', handler);
-                resolve(e.data.token);
-              }
-            });
-          });
+          // No refresh mechanism for this POC - token is passed once via URL.
+          // If it expires mid-session, reject to surface a clear error.
+          return Promise.reject(new Error('Token expired - please restart verification.'));
         })
         .withConf({ lang: 'en' })
         .withOptions({ adaptIframeHeight: true })
         .on('idCheck.onStepCompleted', function (p) {
-          target.postMessage({ type: 'sumsub-step', payload: p }, '*');
+          console.log('onStepCompleted', p);
         })
         .on('idCheck.onApplicantSubmitted', function () {
-          target.postMessage({ type: 'sumsub-submitted' }, '*');
+          console.log('onApplicantSubmitted');
         })
         .on('idCheck.onError', function (err) {
-          target.postMessage({ type: 'sumsub-error', error: String(err) }, '*');
+          console.error('onError', err);
         })
         .build();
       sdk.launch('#sumsub-websdk-container');
     }
 
-    // Listen for the initial token from the opener/parent
-    window.addEventListener('message', function (e) {
-      if (e.data && e.data.type === 'sumsub-init' && e.data.token) {
-        initSumsub(e.data.token);
-      }
-    });
-
-    // Tell opener/parent we're ready to receive the token
-    target.postMessage({ type: 'sumsub-runner-ready' }, '*');
+    var token = getTokenFromUrl();
+    if (token) {
+      initSumsub(token);
+    } else {
+      document.getElementById('sumsub-websdk-container').innerText =
+        'No access token provided in URL.';
+    }
   </script>
 </body>
 </html>
