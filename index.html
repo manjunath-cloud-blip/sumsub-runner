@@ -11,11 +11,13 @@
   <div id="sumsub-websdk-container"></div>
   <script src="https://static.sumsub.com/idensic/static/sns-websdk-builder.js"></script>
   <script>
+    var target = window.opener || window.parent;
+
     function initSumsub(accessToken) {
       var sdk = snsWebSdk
         .init(accessToken, function () {
           return new Promise(function (resolve, reject) {
-            window.parent.postMessage({ type: 'sumsub-token-request' }, '*');
+            target.postMessage({ type: 'sumsub-token-request' }, '*');
             window.addEventListener('message', function handler(e) {
               if (e.data && e.data.type === 'sumsub-token-response') {
                 window.removeEventListener('message', handler);
@@ -27,25 +29,27 @@
         .withConf({ lang: 'en' })
         .withOptions({ adaptIframeHeight: true })
         .on('idCheck.onStepCompleted', function (p) {
-          window.parent.postMessage({ type: 'sumsub-step', payload: p }, '*');
+          target.postMessage({ type: 'sumsub-step', payload: p }, '*');
         })
         .on('idCheck.onApplicantSubmitted', function () {
-          window.parent.postMessage({ type: 'sumsub-submitted' }, '*');
+          target.postMessage({ type: 'sumsub-submitted' }, '*');
         })
         .on('idCheck.onError', function (err) {
-          window.parent.postMessage({ type: 'sumsub-error', error: String(err) }, '*');
+          target.postMessage({ type: 'sumsub-error', error: String(err) }, '*');
         })
         .build();
       sdk.launch('#sumsub-websdk-container');
     }
-    // Listen for the initial token from the parent LWC
+
+    // Listen for the initial token from the opener/parent
     window.addEventListener('message', function (e) {
       if (e.data && e.data.type === 'sumsub-init' && e.data.token) {
         initSumsub(e.data.token);
       }
     });
-    // Tell parent we're ready to receive the token
-    window.parent.postMessage({ type: 'sumsub-runner-ready' }, '*');
+
+    // Tell opener/parent we're ready to receive the token
+    target.postMessage({ type: 'sumsub-runner-ready' }, '*');
   </script>
 </body>
 </html>
